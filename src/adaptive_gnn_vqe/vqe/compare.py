@@ -136,9 +136,10 @@ def run_one_realization(model, N=8, L=80, alpha=1.5, Delta=0.0, K=6, T=6, seed=0
     #
     # For now this is a placeholder stub.
     def data_builder_stub(psi, t):
-        raise RuntimeError(
-            "Implement data_builder_fn(psi,t) to build PyG Data features for the GNN at inference.\n"
-            "Tip: reuse your generate_realization_samples(...) step t features."
+        raise NotImplementedError(
+            "GNN inference graph builder is not implemented yet. "
+            "Next step: build PyG graph features from current psi using the same "
+            "feature logic as xxz_generator.py."
         )
 
     t0 = time.time()
