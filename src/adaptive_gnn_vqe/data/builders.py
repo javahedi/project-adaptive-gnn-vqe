@@ -43,8 +43,40 @@ def build_xxz_dataset(
     return all_pyg_data
 
 
-def build_xxz_graph_from_state(*args, **kwargs):
-    raise NotImplementedError(
-        "Build a PyG graph from the current quantum state psi. "
-        "This will be used for online GNN-guided ADAPT selection."
-    )
+def build_xxz_graph_from_state(
+    psi,
+    r,
+    J,
+    edges,
+    P_cache,
+    alpha,
+    Delta,
+):
+    """
+    Build a PyG graph for online GNN inference during ADAPT-VQE.
+
+    Inputs
+    ------
+    psi:
+        Current quantum state.
+
+    r:
+        Qubit positions.
+
+    J:
+        Coupling matrix.
+
+    edges:
+        Candidate operator pool.
+
+    P_cache:
+        Cached entangler operators.
+
+    alpha:
+        Power-law interaction exponent.
+
+    Delta:
+        XXZ anisotropy parameter.
+    """
+
+    raise NotImplementedError
