@@ -29,3 +29,6 @@ logs/
 
 # PyCharm
 .idea/
+
+outputs/
+logs/
