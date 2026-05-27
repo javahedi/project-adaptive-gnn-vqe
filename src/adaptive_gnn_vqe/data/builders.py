@@ -123,4 +123,24 @@ def build_xxz_graph_from_state(
     alpha_feat = np.full((N, 1), alpha, dtype=np.float32)
     v_t = np.concatenate([v_t, alpha_feat], axis=1)
 
+    J_edge = np.array([J[i, j] for (i, j) in edges], dtype=np.float32)
+
+    ZZ_ops = [two_site_op(N, Z2, i, Z2, j) for (i, j) in edges]
+    XX_ops = [two_site_op(N, X2, i, X2, j) for (i, j) in edges]
+    YY_ops = [two_site_op(N, Y2, i, Y2, j) for (i, j) in edges]
+
+    zz = np.array([expval_cached(psi, ZZ_ops[e]) for e in range(E)], dtype=np.float32)
+    xx = np.array([expval_cached(psi, XX_ops[e]) for e in range(E)], dtype=np.float32)
+    yy = np.array([expval_cached(psi, YY_ops[e]) for e in range(E)], dtype=np.float32)
+
+    bond_energy = J_edge * (xx + yy + Delta * zz)
+
+    h_node = np.zeros(N, dtype=np.float32)
+    for e, (i, j) in enumerate(edges):
+        h_node[i] += bond_energy[e]
+        h_node[j] += bond_energy[e]
+
+    h_feat = h_node[:, None]
+    v_t = np.concatenate([v_t, h_feat], axis=1)
+
     raise NotImplementedError("Static graph construction works; state features next.")
