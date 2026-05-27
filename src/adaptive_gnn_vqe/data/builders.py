@@ -95,4 +95,20 @@ def build_xxz_graph_from_state(
         XXZ anisotropy parameter.
     """
 
-    raise NotImplementedError
+    N = len(r)
+    E = len(edges)
+
+    v_static = node_features_static(r, J)
+    ranks = edge_rank_feature(J, edges)
+
+    edge_index = np.array(
+        [[i for (i, j) in edges], [j for (i, j) in edges]],
+        dtype=np.int64,
+    )
+
+    edge_attr_static = np.stack(
+        [edge_features_static(i, j, r, J, ranks) for (i, j) in edges],
+        axis=0,
+    )
+
+    raise NotImplementedError("Static graph construction works; state features next.")
