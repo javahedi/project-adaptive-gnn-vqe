@@ -143,4 +143,35 @@ def build_xxz_graph_from_state(
     h_feat = h_node[:, None]
     v_t = np.concatenate([v_t, h_feat], axis=1)
 
-    raise NotImplementedError("Static graph construction works; state features next.")
+
+    p_mean = np.zeros(E, dtype=np.float32)
+    p2_mean = np.zeros(E, dtype=np.float32)
+
+    for e in range(E):
+        Ppsi = P_cache[e].dot(psi)
+        p_mean[e] = float(np.real(np.vdot(psi, Ppsi)))
+        p2_mean[e] = float(np.real(np.vdot(Ppsi, Ppsi)))
+
+    p_var = p2_mean - p_mean**2
+    p_var = np.maximum(p_var, 0.0).astype(np.float32)
+
+    edge_attr_t = np.concatenate(
+        [
+            edge_attr_static,
+            zz[:, None],
+            xx[:, None],
+            yy[:, None],
+            p_var[:, None],
+        ],
+        axis=1,
+    )
+
+    data = Data(
+        x=torch.tensor(v_t, dtype=torch.float32),
+        edge_index=torch.tensor(edge_index, dtype=torch.long),
+        edge_attr=torch.tensor(edge_attr_t, dtype=torch.float32),
+    )
+
+    return data
+
+    #raise NotImplementedError("Static graph construction works; state features next.")
