@@ -41,3 +41,10 @@ def build_xxz_dataset(
                 rid += 1
 
     return all_pyg_data
+
+
+def build_xxz_graph_from_state(*args, **kwargs):
+    raise NotImplementedError(
+        "Build a PyG graph from the current quantum state psi. "
+        "This will be used for online GNN-guided ADAPT selection."
+    )
