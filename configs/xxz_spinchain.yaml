@@ -1,0 +1,14 @@
+system:
+  N: 8
+  L: 80
+  alpha: 1.5
+  Delta: 0.0
+
+training:
+  batch_size: 64
+  lr: 1e-3
+  epochs: 100
+
+model:
+  hidden_dim: 96
+  mp_layers: 5
