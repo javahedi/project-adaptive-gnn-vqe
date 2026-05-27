@@ -1,6 +1,7 @@
 # adapt_vs_gnn_vqe.py
 import time
 import json
+from adaptive_gnn_vqe.data.builders import build_xxz_graph_from_state
 import numpy as np
 import torch
 
@@ -135,18 +136,21 @@ def run_one_realization(model, N=8, L=80, alpha=1.5, Delta=0.0, K=6, T=6, seed=0
     # then easiest: reuse that pipeline instead of rebuilding features here.
     #
     # For now this is a placeholder stub.
-    def data_builder_stub(psi, t):
-        raise NotImplementedError(
-            "GNN inference graph builder is not implemented yet. "
-            "Next step: build PyG graph features from current psi using the same "
-            "feature logic as xxz_generator.py."
+    def data_builder_fn(psi, t):
+        data = build_xxz_graph_from_state(
+            psi=psi,
+            r=r,
+            J=J,
+            edges=edges,
+            P_cache=P_cache,
+            alpha=alpha,
+            Delta=Delta,
         )
+        return data.to(next(model.parameters()).device)
 
     t0 = time.time()
-    # gnn_edges = build_circuit_gnn(model, data_builder_stub, psi0, edges, P_cache, T)
-    # comment out until you plug in your builder
+    gnn_edges = build_circuit_gnn(model, data_builder_fn, psi0, edges, P_cache, T)
     t_gnn_select = time.time() - t0
-    gnn_edges = None
 
     # --- VQE refinement (same optimizer for both) ---
     E_adapt, thetas_adapt, nit_a, ok_a = vqe_refine(H, psi0, edges, P_cache, adapt_edges)
