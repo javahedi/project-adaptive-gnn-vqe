@@ -1,4 +1,5 @@
 # src/adaptive_gnn_vqe/data/xxz_generator.py
+
 import numpy as np
 from dataclasses import dataclass
 from typing import List, Tuple, Dict
@@ -402,89 +403,34 @@ def sample_to_pyg(sample: Sample, realization_id: int, alpha: float) -> Data:
 # Script entry point
 # ============================================================
 if __name__ == "__main__":
-    all_pyg_data: List[Data] = []
+    from adaptive_gnn_vqe.data.builders import build_xxz_dataset
+
 
     Delta = 0.0
     J0 = 1.0
     theta0 = 0.05
 
-    # --------------------------------------------------------
-    # System configurations (constant disorder n = N/L = 0.1)
-    # --------------------------------------------------------
-    # system_configs = [
-    #     dict(N=8,  L=80,  T=4, K=6),
-    #     dict(N=10, L=100, T=5, K=7),
-    #     dict(N=12, L=120, T=6, K=8),
-    # ]
-
-    # alpha_list = [0.5, 1.0, 1.5, 2.0, 2.5]
-    # realizations_per_alpha = 200
-
     system_configs = [
-    dict(N=8, L=80, T=2, K=4),
+        dict(N=8, L=80, T=2, K=4),
     ]
 
     alpha_list = [1.0]
     realizations_per_alpha = 10
 
-    rid = 0
+    all_pyg_data = build_xxz_dataset(
+        system_configs=system_configs,
+        alpha_list=alpha_list,
+        realizations_per_alpha=realizations_per_alpha,
+        Delta=Delta,
+        J0=J0,
+        theta0=theta0,
+    )
 
-    for cfg in system_configs:
-
-        N = cfg["N"]
-        L = cfg["L"]
-        T = cfg["T"]
-        K = cfg["K"]
-
-        print("\n======================================")
-        print(f"Generating dataset for N={N}, L={L}, T={T}, K={K}")
-        print("======================================\n")
-
-        for alpha in alpha_list:
-
-            for k in range(realizations_per_alpha):
-
-                seed = rid
-
-                print(
-                    f"N={N} alpha={alpha} | realization {k+1}/{realizations_per_alpha} (rid={rid})"
-                )
-
-                samples = generate_realization_samples(
-                    N=N,
-                    L=L,
-                    J0=J0,
-                    alpha=alpha,
-                    Delta=Delta,
-                    K=K,
-                    T=T,
-                    theta0=theta0,
-                    seed=seed,
-                )
-
-                for s in samples:
-                    data = sample_to_pyg(s, realization_id=rid, alpha=alpha)
-                    data.N = N
-                    data.L = L
-                    all_pyg_data.append(data)
-
-                rid += 1
-
-    # --------------------------------------------------------
-    # Save dataset
-    # --------------------------------------------------------
-    # filename = (
-    #     "spinchain_dataset_multisize_"
-    #     f"realizations_per_alpha{realizations_per_alpha}.pt"
-    # )
-
-    # torch.save(all_pyg_data, filename)
-
-    filename = "test_spinchain_dataset.pt"
     save_path = os.path.join(
         os.path.dirname(__file__),
         "test_spinchain_dataset.pt"
-    )   
-    torch.save(all_pyg_data, f"{save_path}")
+    )
+
+    torch.save(all_pyg_data, save_path)
 
     print("Total graph samples:", len(all_pyg_data))
