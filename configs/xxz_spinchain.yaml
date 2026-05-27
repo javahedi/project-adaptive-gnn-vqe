@@ -3,12 +3,19 @@ system:
   L: 80
   alpha: 1.5
   Delta: 0.0
+  K: 6
+  T: 4
 
 training:
   batch_size: 64
-  lr: 1e-3
   epochs: 100
+  learning_rate: 1e-3
+  weight_decay: 1e-5
 
 model:
   hidden_dim: 96
   mp_layers: 5
+
+dataset:
+  realizations_per_alpha: 200
+  theta0: 0.05
