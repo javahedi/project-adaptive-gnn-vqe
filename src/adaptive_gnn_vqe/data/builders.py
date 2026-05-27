@@ -111,4 +111,16 @@ def build_xxz_graph_from_state(
         axis=0,
     )
 
+    Z_ops = [op_on_site(N, Z2, i) for i in range(N)]
+    X_ops = [op_on_site(N, X2, i) for i in range(N)]
+
+    z = np.array([expval_cached(psi, Z_ops[i]) for i in range(N)], dtype=np.float32)
+    x = np.array([expval_cached(psi, X_ops[i]) for i in range(N)], dtype=np.float32)
+
+    v_state = np.stack([z, x], axis=1)
+    v_t = np.concatenate([v_static, v_state], axis=1)
+
+    alpha_feat = np.full((N, 1), alpha, dtype=np.float32)
+    v_t = np.concatenate([v_t, alpha_feat], axis=1)
+
     raise NotImplementedError("Static graph construction works; state features next.")
