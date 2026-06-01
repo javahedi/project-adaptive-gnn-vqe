@@ -14,7 +14,7 @@ class EdgeMP(MessagePassing):
         self.msg_mlp = nn.Sequential(
             nn.Linear(2 * node_dim + edge_dim, hidden_dim),
             nn.ReLU(),
-            nn.Dropout(0.1),
+            nn.Dropout(0.2),
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
         )
@@ -69,7 +69,18 @@ class PointerGNN(nn.Module):
             nn.Linear(hidden, 1),
         )
 
-    def forward(self, data):
+
+        self.sign_score = nn.Sequential(
+            nn.LayerNorm(5 * hidden),
+            nn.Linear(5 * hidden, 2 * hidden),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(2 * hidden, hidden),
+            nn.ReLU(),
+            nn.Linear(hidden, 1),
+        )
+
+    def encode_edges(self, data):
         x, edge_index, edge_attr = data.x, data.edge_index, data.edge_attr
 
         x = self.node_enc(x)
@@ -79,7 +90,44 @@ class PointerGNN(nn.Module):
             x = x + mp(x, edge_index, e)
 
         src, dst = edge_index
-        #edge_feat = torch.cat([x[src], x[dst], e], dim=-1)
-        edge_feat = torch.cat([ x[src], x[dst], x[src] - x[dst], x[src] * x[dst],
-                              e], dim=-1)
+
+        edge_feat = torch.cat(
+            [
+                x[src],
+                x[dst],
+                x[src] - x[dst],
+                x[src] * x[dst],
+                e,
+            ],
+            dim=-1,
+        )
+
+        return edge_feat
+
+
+    def forward(self, data):
+        edge_feat = self.encode_edges(data)
         return self.edge_score(edge_feat).squeeze(-1)
+    
+    def forward_with_sign(self, data):
+        edge_feat = self.encode_edges(data)
+
+        edge_scores = self.edge_score(edge_feat).squeeze(-1)
+        sign_logits = self.sign_score(edge_feat).squeeze(-1)
+
+        return edge_scores, sign_logits
+
+    # def forward(self, data):
+    #     x, edge_index, edge_attr = data.x, data.edge_index, data.edge_attr
+
+    #     x = self.node_enc(x)
+    #     e = self.edge_enc(edge_attr)
+
+    #     for mp in self.mps:
+    #         x = x + mp(x, edge_index, e)
+
+    #     src, dst = edge_index
+    #     #edge_feat = torch.cat([x[src], x[dst], e], dim=-1)
+    #     edge_feat = torch.cat([ x[src], x[dst], x[src] - x[dst], x[src] * x[dst],
+    #                           e], dim=-1)
+    #     return self.edge_score(edge_feat).squeeze(-1)

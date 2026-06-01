@@ -1,7 +1,7 @@
 
 import torch
 from torch_geometric.utils import softmax, scatter
-
+import torch.nn.functional as F
 
 
 # ============================================================
@@ -111,3 +111,56 @@ def pointer_mean_rank(scores, batch):
         ranks.append(rank)
 
     return sum(ranks) / len(ranks)
+
+
+
+def sign_loss(sign_logits, batch):
+    """
+    Binary sign prediction loss.
+
+    Target:
+        g_signed > 0  -> 1
+        g_signed < 0  -> 0
+    """
+    target = (batch.g_signed > 0).float()
+    return F.binary_cross_entropy_with_logits(sign_logits, target)
+
+
+@torch.no_grad()
+def sign_accuracy(sign_logits, batch):
+    pred = sign_logits > 0
+    target = batch.g_signed > 0
+    return (pred == target).float().mean().item()
+
+
+
+def selected_sign_loss(sign_logits, batch):
+    """
+    Sign loss only on the oracle-selected edge y for each graph.
+    """
+    e_batch = edge_batch_index(batch)
+    _, e_ptr = edge_ptr_from_edge_batch(e_batch, batch.num_graphs)
+    y_global = local_to_global_targets(batch, e_batch, e_ptr)
+
+    selected_logits = sign_logits[y_global]
+    selected_targets = (batch.g_signed[y_global] > 0).float()
+
+    return F.binary_cross_entropy_with_logits(
+        selected_logits,
+        selected_targets,
+    )
+
+
+@torch.no_grad()
+def selected_sign_accuracy(sign_logits, batch):
+    """
+    Sign accuracy only on the oracle-selected edge y for each graph.
+    """
+    e_batch = edge_batch_index(batch)
+    _, e_ptr = edge_ptr_from_edge_batch(e_batch, batch.num_graphs)
+    y_global = local_to_global_targets(batch, e_batch, e_ptr)
+
+    pred = sign_logits[y_global] > 0
+    target = batch.g_signed[y_global] > 0
+
+    return (pred == target).float().mean().item()

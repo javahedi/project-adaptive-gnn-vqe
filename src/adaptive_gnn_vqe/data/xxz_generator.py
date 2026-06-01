@@ -215,6 +215,12 @@ def commutator_expectation_abs(H: csr_matrix, P: csr_matrix, psi: np.ndarray) ->
     return float(np.abs(1j * val))
 
 
+def commutator_expectation_signed(H: csr_matrix, P: csr_matrix, psi: np.ndarray) -> float:
+    HP_psi = H.dot(P.dot(psi))
+    PH_psi = P.dot(H.dot(psi))
+    val = np.vdot(psi, HP_psi - PH_psi)
+    return float(np.real(1j * val))
+
 def apply_entangler(psi: np.ndarray, P: csr_matrix, theta: float) -> np.ndarray:
     A = (-1j * theta) * P
     return expm_multiply(A, psi)
@@ -232,6 +238,7 @@ class Sample:
     label_edge: int
     step: int
     gvals: np.ndarray     # <-- add this (shape [E])
+    g_signed: np.ndarray   # <-- add this (shape [E])
 
 # ============================================================
 # Main generator (cache friendly)
@@ -255,8 +262,8 @@ def generate_realization_samples(
     J = couplings_from_positions(r, J0, alpha)
 
     edges = topK_edge_list(J, K=K)
-    J_edge = np.array([J[i, j] for (i, j) in edges], dtype=np.float32)  # [E]
-    rng.shuffle(edges)  # avoid any index bias
+    rng.shuffle(edges)
+    J_edge = np.array([J[i, j] for (i, j) in edges], dtype=np.float32)
 
     # Build Hamiltonian once
     H = build_H_xxz_longrange(J, Delta=Delta)
@@ -267,9 +274,9 @@ def generate_realization_samples(
     #psi[0] = 1.0
 
     # Random product state
-    psi = random_product_state(N, rng)
+    #psi = random_product_state(N, rng)
     # Weakly tilted product state
-    #psi = weakly_tilted_product_state(N, rng, eps=0.5)
+    psi = weakly_tilted_product_state(N, rng, eps=0.5)
                                       
     # Static features (cache)
     v_static = node_features_static(r, J)  # [N,4] , x,d,s,m
@@ -333,8 +340,13 @@ def generate_realization_samples(
      
 
         # greedy label
-        gvals = np.array([commutator_expectation_abs(H, P_cache[e], psi) for e in range(E)])
+        #gvals = np.array([commutator_expectation_abs(H, P_cache[e], psi) for e in range(E)])
+        g_signed = np.array(
+            [commutator_expectation_signed(H, P_cache[e], psi) for e in range(E)],
+            dtype=np.float32,
+        )
 
+        gvals = np.abs(g_signed).astype(np.float32)
 
         p_mean = np.zeros(E, dtype=np.float32)
         p2_mean = np.zeros(E, dtype=np.float32)
@@ -371,7 +383,8 @@ def generate_realization_samples(
             edge_attr=edge_attr_t,
             label_edge=label,
             step=t,
-            gvals=gvals.astype(np.float32),   # <-- add
+            gvals=gvals.astype(np.float32),
+            g_signed=g_signed.astype(np.float32),
         ))
 
         psi = apply_entangler(psi, P_cache[label], theta=theta0)
@@ -389,13 +402,13 @@ def sample_to_pyg(sample: Sample, realization_id: int, alpha: float) -> Data:
         edge_index=torch.tensor(sample.edge_index, dtype=torch.long),
         edge_attr=torch.tensor(sample.edge_attr, dtype=torch.float32),
         y=torch.tensor([sample.label_edge], dtype=torch.long),
-        g=torch.tensor(sample.gvals, dtype=torch.float32),   # <-- add (E,)
+        g=torch.tensor(sample.gvals, dtype=torch.float32),
+        g_signed=torch.tensor(sample.g_signed, dtype=torch.float32),
     )
     data.realization_id = int(realization_id)
     data.step = int(sample.step)
     data.alpha = float(alpha)
     return data
-
 
 
 
@@ -411,11 +424,11 @@ if __name__ == "__main__":
     theta0 = 0.05
 
     system_configs = [
-        dict(N=8, L=80, T=2, K=4),
-    ]
+    dict(N=8, L=80, T=4, K=6),
+]
 
-    alpha_list = [1.0]
-    realizations_per_alpha = 10
+    alpha_list = [0.5, 1.0, 1.5, 2.0, 2.5]
+    realizations_per_alpha = 500
 
     all_pyg_data = build_xxz_dataset(
         system_configs=system_configs,

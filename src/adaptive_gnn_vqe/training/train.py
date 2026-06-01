@@ -12,8 +12,11 @@ from adaptive_gnn_vqe.training.losses import (
     pointer_accuracy,
     pointer_topk_accuracy,
     pointer_mean_rank,
+    sign_loss,
+    sign_accuracy,
+    selected_sign_loss,
+    selected_sign_accuracy,
 )
-
 
 
 BASE_DIR = os.path.dirname(__file__)
@@ -39,7 +42,11 @@ log = {
     "val_rank": [],
     "val_top5": [],
     "per_alpha": [],
-    "per_N": []
+    "per_N": [],
+    "val_unif": [],
+    "val_J": [],
+    "train_sign_acc": [],
+    "val_sign_acc": [], 
 }
 
 os.makedirs("logs", exist_ok=True)
@@ -171,7 +178,7 @@ def main():
     real_ids = sorted(set(int(d.realization_id) for d in data_list))
     random.shuffle(real_ids)
 
-    split = int(0.8 * len(real_ids))
+    split = int(0.7 * len(real_ids))
     train_ids = set(real_ids[:split])
     val_ids = set(real_ids[split:])
 
@@ -208,18 +215,25 @@ def main():
     best_rank = float("inf")
     best_rank_epoch = 0
 
-    for epoch in range(1, 101):
+    for epoch in range(1, 51):
         model.train()
         tr_loss = tr_acc = tr_top5 = tr_unif = tr_J = 0.0
         tr_rank = 0.0
         nb = 0
+        tr_sign_acc = 0.0
 
         for batch in train_loader:
             batch = batch.to(device)
             opt.zero_grad()
             scores = model(batch)
-            #loss = pointer_loss(scores, batch)
-            loss = pointer_soft_loss(scores, batch, tau=0.3)
+            scores, sign_logits = model.forward_with_sign(batch)
+
+            loss_edge = pointer_soft_loss(scores, batch, tau=0.3)
+            #loss_sign = sign_loss(sign_logits, batch)
+            loss_sign = selected_sign_loss(sign_logits, batch)
+
+            loss = loss_edge + 0.4 * loss_sign
+
             loss.backward()
             opt.step()
 
@@ -229,6 +243,7 @@ def main():
             tr_unif += uniform_baseline_accuracy(batch)
             tr_J += strongest_J_baseline_accuracy(batch)
             tr_rank += pointer_mean_rank(scores, batch)
+            tr_sign_acc += selected_sign_accuracy(sign_logits, batch)
             nb += 1
 
         tr_loss /= nb
@@ -238,26 +253,30 @@ def main():
         tr_J /= nb
         tr_rank /= nb
 
+        tr_sign_acc /= nb
         model.eval()
         va_acc = va_top5 = va_unif = va_J = 0.0
         va_rank = 0.0
+        va_sign_acc = 0.0
         nb = 0
 
         with torch.no_grad():
             for batch in val_loader:
                 batch = batch.to(device)
-                scores = model(batch)
+                scores, sign_logits = model.forward_with_sign(batch)
                 va_acc += pointer_accuracy(scores, batch)
                 va_top5 += pointer_topk_accuracy(scores, batch, 5)
                 va_unif += uniform_baseline_accuracy(batch)
                 va_J += strongest_J_baseline_accuracy(batch)
                 va_rank += pointer_mean_rank(scores, batch)
+                va_sign_acc += selected_sign_accuracy(sign_logits, batch)
                 nb += 1
 
         va_acc /= nb
         va_top5 /= nb
         va_unif /= nb
         va_rank /= nb
+        va_sign_acc /= nb
         va_J /= nb
 
         per_alpha = evaluate_per_alpha(model, val_loader, device)
@@ -284,6 +303,7 @@ def main():
             f"train rank {tr_rank:.1f} | "
             f"val acc {va_acc:.3f} (top5 {va_top5:.3f}) | "
             f"val rank {va_rank:.1f} | "
+            f"val sign acc {va_sign_acc:.3f} | "
             f"best acc {best_val:.3f} @ {best_epoch} | best rank {best_rank:.2f} @ {best_rank_epoch}"
         )
         print("  Val per alpha:", {round(k, 2): round(v, 3) for k, v in per_alpha.items()})
@@ -303,6 +323,11 @@ def main():
 
         log["per_alpha"].append(per_alpha)
         log["per_N"].append(per_N)
+        log["val_unif"].append(va_unif)
+        log["val_J"].append(va_J)
+
+        log["train_sign_acc"].append(tr_sign_acc)
+        log["val_sign_acc"].append(va_sign_acc)
 
        
 
